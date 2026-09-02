@@ -1,6 +1,12 @@
 body { margin:0; }
 body > header {
     background-color: #00223e;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding:6px 24px;
+    max-height: 50px;
+    overflow: hidden;
 }
 body > header > div:first-child * {
     height: 50px;
