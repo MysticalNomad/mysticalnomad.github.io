@@ -6,6 +6,7 @@ body > header {
     background-color: #00223e;
     display: flex;
     flex-direction: row;
+    align-items: center;
     justify-content: space-between;
     padding:6px 24px;
     max-height: 50px;
@@ -14,10 +15,18 @@ body > header {
 body > header * {
     color:white;
 }
+body > header > div {
+    flex:0;
+}
 body > header > div * {
     height: 50px;
 }
-body > header > nav { }
+body > header > h1 {
+    white-space: nowrap;
+    flex:0;
+    margin:0 20px;
+}
+body > header > nav { flex:1; display: flex; justify-content: flex-end; }
 body > header > nav > ul {
     display: flex;
     flex-direction: row;
@@ -32,9 +41,16 @@ body > header > nav > ul > li {
 body > header > nav > ul > li > a {
     display: flex;
     align-items: center;
-    padding: 6px;
+    padding: 10px;
+    text-shadow: 0px 0px 2px black;
     text-decoration: none;
     color:white;
-    background:green;
+    background:#064171;
     border-radius: 6px;
+    transition: background 0.2s ease-in-out;
+    font-weight:600;
 }   
+body > header > nav > ul > li > a:hover {
+    background:#0a5aa1;
+    transition: background 0.2s ease-in-out;
+}
