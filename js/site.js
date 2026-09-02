@@ -1,6 +1,23 @@
 const SHEET_ID = "1Nl4ENaosyt6OlxEag3RbeTxZ3opVgGK1cyOathAohQk";
 const API_KEY = "AIzaSyD8EVImOPu7MmNbxWib7q721vcnD1tBf4U";
 
+function navigate(sender) {
+    const dataPoint = sender.dataset.point;
+    location.hash = dataPoint;
+}
+
+function loadCurrentView() {
+    const dataPoint = location.hash.slice(1) || "HOME";
+    const link = document.querySelector(
+        `nav a[data-point="${CSS.escape(dataPoint)}"]`
+    );
+
+    loadData(link);
+}
+
+window.addEventListener("DOMContentLoaded", loadCurrentView);
+window.addEventListener("hashchange", loadCurrentView);
+
 const loadData = (sender) => {
     let dataPoint = "HOME"; // Default data point
     if (sender && sender.dataset && sender.dataset.point) {
