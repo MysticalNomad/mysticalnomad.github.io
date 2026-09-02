@@ -6,7 +6,7 @@ const loadData = (sender) => {
     if (sender && sender.dataset && sender.dataset.point) {
         dataPoint = sender.dataset.point;
     }
-    const RANGE = `${dataPoint}!A1:Z100`;
+    const RANGE = `${dataPoint}!A:Z`;
 
     document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
     sender.classList.add("active");
@@ -16,7 +16,7 @@ const loadData = (sender) => {
         .then(data => {
             const rawRows = data.values;
             if (!rawRows || rawRows.length === 0) return;
-            
+
             const orderedHeaders = rawRows[0];
             const formattedData = rawRows.slice(1).map(row => {
                 const rowObject = {};
