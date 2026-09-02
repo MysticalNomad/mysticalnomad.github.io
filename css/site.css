@@ -14,6 +14,27 @@ body > header {
 body > header * {
     color:white;
 }
-body > header > div:first-child * {
+body > header > div * {
     height: 50px;
 }
+body > header > nav { }
+body > header > nav > ul {
+    display: flex;
+    flex-direction: row;
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+body > header > nav > ul > li {
+    gap: 6px;
+    display: flex;
+}
+body > header > nav > ul > li > a {
+    display: flex;
+    align-items: center;
+    padding: 6px;
+    text-decoration: none;
+    color:white;
+    background:green;
+    border-radius: 6px;
+}   
