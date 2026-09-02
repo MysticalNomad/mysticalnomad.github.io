@@ -7,6 +7,9 @@ const loadData = (sender) => {
         dataPoint = sender.dataset.point;
     }
     const RANGE = `${dataPoint}!A1:Z100`;
+
+    document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
+    sender.classList.add("active");
     
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`)
       .then(response => response.json())
