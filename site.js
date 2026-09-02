@@ -10,29 +10,45 @@ const loadData = (sender) => {
 
     document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
     sender.classList.add("active");
-    
+
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`)
-      .then(response => response.json())
-      .then(data => 
-        {
+        .then(response => response.json())
+        .then(data => {
             const rawRows = data.values;
             if (!rawRows || rawRows.length === 0) return;
-    
-            // Extract headers from Row 0
-            const headers = rawRows[0];
-    
-            // Map remaining rows into structured key-value objects
+
+            // 1. Maintain headers in their exact left-to-right spreadsheet order
+            const orderedHeaders = rawRows[0];
+
+            // 2. Map data rows while strictly preserving key creation order
             const formattedData = rawRows.slice(1).map(row => {
-                let rowObject = {};
-                headers.forEach((header, index) => {
-                    // If cell is empty/missing, assign "" (or null)
+                const rowObject = {};
+                orderedHeaders.forEach((header, index) => {
                     rowObject[header] = row[index] !== undefined ? row[index] : "";
                 });
                 return rowObject;
             });
-    
-            console.log(formattedData);
-        }
-      );
+
+            // Output both the ordered column list and the structured rows
+            console.log("Headers (In Sheet Order):", orderedHeaders);
+            console.log("Rows:", formattedData);
+
+            // Example: Rendering an HTML Table using the exact header order
+            renderTable(orderedHeaders, formattedData);
+        });
+
 }
 
+function renderTable(headers, rows) {
+    // Use orderedHeaders to build <th> tags in correct sequence
+    const tableHeader = headers.map(h => `<th>${h}</th>`).join("");
+
+    // Use orderedHeaders to pull values in correct sequence for <td> tags
+    const tableRows = rows.map(row => {
+        const cells = headers.map(h => `<td>${row[h]}</td>`).join("");
+        return `<tr>${cells}</tr>`;
+    }).join("");
+
+    // Attach to your DOM element (e.g., <table id="lego-table"></table>)
+    // document.getElementById("lego-table").innerHTML = `<thead><tr>${tableHeader}</tr></thead><tbody>${tableRows}</tbody>`;
+}
