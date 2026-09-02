@@ -6,32 +6,34 @@ const loadData = (sender) => {
     if (sender && sender.dataset && sender.dataset.point) {
         dataPoint = sender.dataset.point;
     }
-    const RANGE = `${dataPoint}!A:Z`;
 
-    document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
-    sender.classList.add("active");
+    if (dataPoint !== "HOME") {
+        const RANGE = `${dataPoint}!A:Z`;
 
-    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`)
-        .then(response => response.json())
-        .then(data => {
-            const rawRows = data.values;
-            if (!rawRows || rawRows.length === 0) return;
+        document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
+        sender.classList.add("active");
 
-            const orderedHeaders = rawRows[0];
-            const formattedData = rawRows.slice(1).map(row => {
-                const rowObject = {};
-                orderedHeaders.forEach((header, index) => {
-                    rowObject[header] = row[index] !== undefined ? row[index] : "";
+        fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`)
+            .then(response => response.json())
+            .then(data => {
+                const rawRows = data.values;
+                if (!rawRows || rawRows.length === 0) return;
+
+                const orderedHeaders = rawRows[0];
+                const formattedData = rawRows.slice(1).map(row => {
+                    const rowObject = {};
+                    orderedHeaders.forEach((header, index) => {
+                        rowObject[header] = row[index] !== undefined ? row[index] : "";
+                    });
+                    return rowObject;
                 });
-                return rowObject;
+                console.log("Headers (In Sheet Order):", orderedHeaders);
+                console.log("Rows:", formattedData);
+
+                renderTable(orderedHeaders, formattedData);
             });
-            console.log("Headers (In Sheet Order):", orderedHeaders);
-            console.log("Rows:", formattedData);
-
-            renderTable(orderedHeaders, formattedData);
-        });
-
-}
+    }
+};
 
 function renderTable(headers, rows) {
     const tableHeader = headers.map(h => `<th>${h}</th>`).join("");
