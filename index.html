@@ -1,29 +1,39 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<title>Happy</title>
-		<meta name="theme-color" content="#1e2327" />
-		<meta name="color-theme" content="dark light" />
-		<script src="/site.js"></script>
-	</head>
-	<body>
-		<header></header>
-		<nav>
-			<ul>
-				<li>
-					<a href="javascript:void(0);" onclick="loadData(this)" data-point="HOME">Home</a>
-					<a href="javascript:void(0);" onclick="loadData(this)" data-point="LEGO">LEGO Sets</a>
-					<a href="javascript:void(0);" onclick="loadData(this)" data-point="FUNKO">Funko Collectibles</a>
-					<a href="javascript:void(0);" onclick="loadData(this)" data-point="BOARD_GAMES">Board Games</a>
-				</li>
-			</ul>
-		</nav>
-		<main>
-			<h1>Home</h1>
-			<section>
-				<table id="data-output"></table>
-			</section>
-		</main>
-		<footer></footer>
-	</body>
+
+<head>
+	<title>MysticalNomad.com</title>
+	<meta name="theme-color" content="#1e2327" />
+	<meta name="color-theme" content="dark light" />
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link rel="stylesheet" href="/css/fontawesome/css/fontawesome.css">
+	<link rel="stylesheet" href="/css/site.css">
+
+	<script src="/js/site.js"></script>
+</head>
+
+<body>
+	<header></header>
+	<nav>
+		<ul>
+			<li>
+				<a href="javascript:void(0);" onclick="loadData(this)" data-point="HOME"><i class="fas fa-home"></i>Home</a>
+				<a href="javascript:void(0);" onclick="loadData(this)" data-point="LEGO">LEGO Sets</a>
+				<a href="javascript:void(0);" onclick="loadData(this)" data-point="FUNKO">Funko Collectibles</a>
+				<a href="javascript:void(0);" onclick="loadData(this)" data-point="BOARD_GAMES">Board Games</a>
+			</li>
+		</ul>
+	</nav>
+	<main>
+		<h1>Home</h1>
+		<section>
+			<table id="data-output"></table>
+		</section>
+	</main>
+	<footer></footer>
+</body>
+
 </html>
