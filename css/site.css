@@ -88,6 +88,7 @@ main {
     width: 100vw;
     height: calc(100vh - 62px);
     background: #DDD;
+    background-attachment: fixed;
 }
 main > h1 {
     margin:0;
