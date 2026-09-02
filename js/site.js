@@ -62,7 +62,7 @@ const loadData = async (sender) => {
             return rowObject;
         });
 
-        renderTable(orderedHeaders, formattedData);
+        renderCards(dataPoint, formattedData);
     } catch (error) {
         if (requestId === latestRequest) {
             console.error(error);
@@ -79,32 +79,65 @@ function setLoading(isLoading) {
     loadingScreen.setAttribute("aria-hidden", String(!isLoading));
 }
 
-function renderTable(headers, rows) {
-    const tableHeader = headers.map(h => `<th>${h}</th>`).join("");
-    const tableRows = rows.map(row => {
-        const cells = headers.map(h => `<td>${row[h]}</td>`).join("");
-        return `<tr>${cells}</tr>`;
-    }).join("");
-    document.getElementById("data-output").innerHTML = `<thead><tr>${tableHeader}</tr></thead><tbody>${tableRows}</tbody>`;
+const cardTemplates = [
+    { 
+        cardType: "LEGO",
+        template: `
+                <article>
+                    <div>
+                        <img src="{Image}" alt="{Name}">
+                    </div>
+                    <div>
+                        <header>{Name}</header>
+                        <sup>{Number}</sup>
+                        <div>{Franchise}</div>
+                        <span>{Series}</span>
+                        <sub>{Pieces} pieces</sub>
+                    </div>
+                </article>
+            `
+    }
+];
+
+function renderCards(cardType, rows) {
+    const output = document.getElementById("data-output");
+    const cardTemplate = cardTemplates.find(card => card.cardType === cardType);
+    output.replaceChildren();
+
+    if (!cardTemplate) {
+        const message = document.createElement("p");
+        message.textContent = `No card template is available for ${cardType}.`;
+        output.append(message);
+        return;
+    }
+
+    const cards = document.createDocumentFragment();
+    rows.forEach(row => {
+        const template = document.createElement("template");
+        template.innerHTML = cardTemplate.template.trim();
+        replacePlaceholders(template.content, row);
+        cards.append(template.content);
+    });
+
+    output.append(cards);
 }
 
-function renderLegoSets(legoSets) {
-    const legoContainer = document.getElementById("lego-container");
-    legoContainer.innerHTML = ""; // Clear previous content
+function replacePlaceholders(content, row) {
+    const replaceValue = value => value.replace(/\{([^{}]+)\}/g, (placeholder, field) => {
+        return Object.hasOwn(row, field) ? String(row[field]) : "";
+    });
+    const elements = content.querySelectorAll("*");
+    const textNodes = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
 
+    let textNode = textNodes.nextNode();
+    while (textNode) {
+        textNode.textContent = replaceValue(textNode.textContent);
+        textNode = textNodes.nextNode();
+    }
 
-    const legoTemplate = `
-        <article>
-            <div>
-                <img src="{Image}" alt="{Name}">
-            </div>
-            <div>
-                <h2>{Name}</h2>
-                <p><strong>Set Number:</strong> {Set Number}</p>
-                <p><strong>Theme:</strong> {Theme}</p>
-                <p><strong>Subtheme:</strong> {Subtheme}</p>
-                <p><strong>Release Year:</strong> {Release Year}</p>
-            </div>
-        </article>
-    `;
+    elements.forEach(element => {
+        Array.from(element.attributes).forEach(attribute => {
+            element.setAttribute(attribute.name, replaceValue(attribute.value));
+        });
+    });
 }
