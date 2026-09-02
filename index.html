@@ -10,9 +10,7 @@
 				"https://api.steinhq.com/v1/storages/6a97f91792b1163e973b381e"
 			);
 
-			store.read("Sheet1", { 
-				authentication: { username: "nomad1985", password: "dc88d540d3597bdf81f6431f8a94acdb" }
-			}).then(data => {
+			store.read("Sheet1").then(data => {
 				console.log(data);
 			});
 
