@@ -43,3 +43,24 @@ function renderTable(headers, rows) {
     }).join("");
     document.getElementById("data-output").innerHTML = `<thead><tr>${tableHeader}</tr></thead><tbody>${tableRows}</tbody>`;
 }
+
+function renderLegoSets(legoSets) {
+    const legoContainer = document.getElementById("lego-container");
+    legoContainer.innerHTML = ""; // Clear previous content
+
+
+    const legoTemplate = `
+        <article>
+            <div>
+                <img src="{Image}" alt="{Name}">
+            </div>
+            <div>
+                <h2>{Name}</h2>
+                <p><strong>Set Number:</strong> {Set Number}</p>
+                <p><strong>Theme:</strong> {Theme}</p>
+                <p><strong>Subtheme:</strong> {Subtheme}</p>
+                <p><strong>Release Year:</strong> {Release Year}</p>
+            </div>
+        </article>
+    `;
+}
