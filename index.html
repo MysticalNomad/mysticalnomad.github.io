@@ -4,6 +4,23 @@
 		<title>Happy</title>
 		<meta name="theme-color" content="#1e2327" />
 		<meta name="color-theme" content"dark light" />
+		<script src="https://unpkg.com/stein-js-client"></script>
+		<script>
+			const store = new SteinStore(
+				"https://api.steinhq.com/v1/storages/6a97f91792b1163e973b381e"
+			);
+
+			store.read("WEBLIST", { 
+				limit: 1, 
+				offset: 2, 
+				authentication: { username: "nomad1975", password: "dc88d540d3597bdf81f6431f8a94acdb" }
+			}).then(data => {
+				console.log(data);
+			});
+
+		  // Logs ↓ (trimmed for brevity)
+		  // [{"title":"Why the Best Things in Life Can’t Be Planned","content":"Thales of Miletus, considered ...","link":"https://medium.com/...","author":"Zat Rana"}, {...}, ...]
+		</script>
 	</head>
 	<body>
 		<header></header>
