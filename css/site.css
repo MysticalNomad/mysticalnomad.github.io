@@ -1,4 +1,7 @@
-body { margin:0; }
+body { 
+    margin:0; 
+    font-family:'Open Sans', 'Outfit', 'Roboto', 'Source Code Pro', sans-serif;
+}
 body > header {
     background-color: #00223e;
     display: flex;
