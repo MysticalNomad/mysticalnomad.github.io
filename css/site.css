@@ -1,0 +1,7 @@
+body { margin:0; }
+body > header {
+    background-color: #00223e;
+}
+body > header > div:first-child * {
+    height: 50px;
+}
