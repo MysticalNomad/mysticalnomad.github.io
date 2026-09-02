@@ -1,5 +1,6 @@
 const SHEET_ID = "1Nl4ENaosyt6OlxEag3RbeTxZ3opVgGK1cyOathAohQk";
 const API_KEY = "AIzaSyD8EVImOPu7MmNbxWib7q721vcnD1tBf4U";
+let latestRequest = 0;
 
 function navigate(sender) {
     const dataPoint = sender.dataset.point;
@@ -18,39 +19,65 @@ function loadCurrentView() {
 window.addEventListener("DOMContentLoaded", loadCurrentView);
 window.addEventListener("hashchange", loadCurrentView);
 
-const loadData = (sender) => {
+const loadData = async (sender) => {
+    const requestId = ++latestRequest;
     let dataPoint = "HOME"; // Default data point
     if (sender && sender.dataset && sender.dataset.point) {
         dataPoint = sender.dataset.point;
     }
 
-    if (dataPoint !== "HOME") {
-        const RANGE = `${dataPoint}!A:Z`;
+    setLoading(true);
 
+    try {
         document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
-        sender.classList.add("active");
+        if (sender) sender.classList.add("active");
 
-        fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`)
-            .then(response => response.json())
-            .then(data => {
-                const rawRows = data.values;
-                if (!rawRows || rawRows.length === 0) return;
+        if (dataPoint === "HOME") {
+            document.getElementById("data-title").textContent = "Home";
+            document.getElementById("data-output").innerHTML = "";
+            return;
+        }
 
-                const orderedHeaders = rawRows[0];
-                const formattedData = rawRows.slice(1).map(row => {
-                    const rowObject = {};
-                    orderedHeaders.forEach((header, index) => {
-                        rowObject[header] = row[index] !== undefined ? row[index] : "";
-                    });
-                    return rowObject;
-                });
-                console.log("Headers (In Sheet Order):", orderedHeaders);
-                console.log("Rows:", formattedData);
+        const RANGE = `${dataPoint}!A:Z`;
+        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`);
+        if (!response.ok) {
+            throw new Error(`Google Sheets request failed: ${response.status}`);
+        }
 
-                renderTable(orderedHeaders, formattedData);
+        const data = await response.json();
+        if (requestId !== latestRequest) return;
+
+        const rawRows = data.values;
+        if (!rawRows || rawRows.length === 0) {
+            document.getElementById("data-output").innerHTML = "<p>No data is available.</p>";
+            return;
+        }
+
+        const orderedHeaders = rawRows[0];
+        const formattedData = rawRows.slice(1).map(row => {
+            const rowObject = {};
+            orderedHeaders.forEach((header, index) => {
+                rowObject[header] = row[index] !== undefined ? row[index] : "";
             });
+            return rowObject;
+        });
+
+        renderTable(orderedHeaders, formattedData);
+    } catch (error) {
+        if (requestId === latestRequest) {
+            console.error(error);
+            document.getElementById("data-output").innerHTML = "<p>Unable to load this content. Please try again.</p>";
+        }
+    } finally {
+        if (requestId === latestRequest) setLoading(false);
     }
 };
+
+function setLoading(isLoading) {
+    const loadingScreen = document.getElementById("loading-screen");
+    loadingScreen.classList.toggle("visible", isLoading);
+    loadingScreen.setAttribute("aria-hidden", String(!isLoading));
+}
 
 function renderTable(headers, rows) {
     const tableHeader = headers.map(h => `<th>${h}</th>`).join("");
