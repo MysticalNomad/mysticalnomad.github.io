@@ -8,6 +8,9 @@ body > header {
     max-height: 50px;
     overflow: hidden;
 }
+body > header * {
+    color:white;
+}
 body > header > div:first-child * {
     height: 50px;
 }
