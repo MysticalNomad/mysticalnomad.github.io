@@ -84,12 +84,14 @@ const cardTemplates = [
         cardType: "LEGO",
         template: `
                 <article>
-                    <div class="itemTitle">{Name}</div>
+                    <div class="itemTitle">
+                        <sup>{Number}</sup>
+                        <span>{Name}</span>
+                    </div>
                     <div class="itemImage">
                         <img src="{Image}" alt="{Name}">
                     </div>
                     <div class="itemDetails">
-                        <sup>{Number}</sup>
                         <div>{Franchise}</div>
                         <span>{Series}</span>
                         <sub>{Pieces} pieces</sub>
