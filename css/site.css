@@ -101,12 +101,7 @@ main > h1 {
     margin:0;
 }
 main > section {
-    margin:0 auto;
-    max-width: 1200px;
     padding: 12px;
-    background:white;
-    border:1px solid #BBB;
-    border-radius: 6px;
 }
 #data-output {
     display: flex;
@@ -116,8 +111,9 @@ main > section {
 }
 #data-output > article {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    grid-template-rows: repeat(5, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 6px;
 
     /* display: flex;
     flex: 1 1 280px;
