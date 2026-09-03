@@ -118,6 +118,13 @@ function renderCards(cardType, rows) {
         const template = document.createElement("template");
         template.innerHTML = cardTemplate.template.trim();
         replacePlaceholders(template.content, row);
+        const image = template.content.querySelector(".itemImage img");
+        if (image && !image.getAttribute("src")?.trim()) {
+            const placeholder = document.createElement("i");
+            placeholder.className = "fa-solid fa-camera-slash";
+            placeholder.setAttribute("aria-label", "No image available");
+            image.replaceWith(placeholder);
+        }
         cards.append(template.content);
     });
 
