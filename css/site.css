@@ -115,6 +115,21 @@ body > header > h1 {
 #search-clear[hidden] {
     display: none;
 }
+#camera-search-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: #b9d4ee;
+    font-size: 0.85rem;
+    padding: 4px;
+    cursor: pointer;
+}
+#camera-search-button:hover {
+    color: white;
+}
 #search-status {
     display: flex;
     align-items: center;

@@ -52,6 +52,7 @@ function loadCurrentView() {
 window.addEventListener("DOMContentLoaded", loadCurrentView);
 window.addEventListener("DOMContentLoaded", initNavToggle);
 window.addEventListener("DOMContentLoaded", initSearch);
+window.addEventListener("DOMContentLoaded", initCameraSearch);
 window.addEventListener("DOMContentLoaded", initFieldFilter);
 window.addEventListener("hashchange", loadCurrentView);
 window.addEventListener("hashchange", closeNav);
@@ -284,6 +285,151 @@ const applySearch = async (query) => {
             document.getElementById("data-output").innerHTML = "<p>Unable to search. Please try again.</p>";
         }
     } finally {
+        if (requestId === latestRequest) setLoading(false);
+    }
+};
+
+const MAX_IMAGE_RESULTS = 24;
+const TFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/+esm";
+const MOBILENET_MODULE_URL = "https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/+esm";
+let mobilenetModelPromise = null;
+const embeddingCache = {};
+
+function initCameraSearch() {
+    const cameraButton = document.getElementById("camera-search-button");
+    const cameraInput = document.getElementById("camera-input");
+    if (!cameraButton || !cameraInput) return;
+
+    cameraButton.addEventListener("click", () => cameraInput.click());
+    cameraInput.addEventListener("change", () => {
+        const file = cameraInput.files?.[0];
+        cameraInput.value = "";
+        if (file) applyImageSearch(file);
+    });
+}
+
+// Loaded on first use only, so visitors who never search by photo avoid the download
+async function loadMobileNetModel() {
+    if (!mobilenetModelPromise) {
+        mobilenetModelPromise = (async () => {
+            await import(TFJS_MODULE_URL);
+            const mobilenetLib = await import(MOBILENET_MODULE_URL);
+            return mobilenetLib.load();
+        })();
+    }
+    return mobilenetModelPromise;
+}
+
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Unable to load image: ${src}`));
+        img.src = src;
+    });
+}
+
+async function computeEmbedding(model, image) {
+    const tensor = model.infer(image, true);
+    const values = await tensor.data();
+    tensor.dispose();
+    return Array.from(values);
+}
+
+// Embeddings are cached in localStorage so repeat searches skip re-downloading/re-scoring catalog images
+async function getEmbeddingForUrl(model, url) {
+    if (!url) return null;
+    if (embeddingCache[url]) return embeddingCache[url];
+
+    const storageKey = `embedding:${url}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+        const parsed = JSON.parse(stored);
+        embeddingCache[url] = parsed;
+        return parsed;
+    }
+
+    try {
+        const image = await loadImage(url);
+        const embedding = await computeEmbedding(model, image);
+        embeddingCache[url] = embedding;
+        localStorage.setItem(storageKey, JSON.stringify(embedding));
+        return embedding;
+    } catch {
+        return null; // image failed to load or is blocked by CORS
+    }
+}
+
+function cosineSimilarity(a, b) {
+    let dot = 0, normA = 0, normB = 0;
+    for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+    }
+    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function showImageSearchStatus(count) {
+    const status = document.getElementById("search-status");
+    if (!status) return;
+
+    const text = document.createElement("span");
+    text.textContent = `${count} closest match${count === 1 ? "" : "es"} found for your photo`;
+
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.textContent = "Clear search";
+    clearButton.addEventListener("click", () => {
+        updateSearchIndicator("");
+        applySearch("");
+    });
+
+    status.replaceChildren(text, clearButton);
+    status.hidden = false;
+}
+
+const applyImageSearch = async (file) => {
+    const requestId = ++latestRequest;
+    setLoading(true);
+    clearFieldFilters();
+    hideSearchStatus();
+
+    const objectUrl = URL.createObjectURL(file);
+
+    try {
+        document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
+
+        const model = await loadMobileNetModel();
+        const queryImage = await loadImage(objectUrl);
+        const queryEmbedding = await computeEmbedding(model, queryImage);
+
+        const resultsByType = await Promise.all(ALL_DATA_POINTS.map(async dataPoint => {
+            const rows = await fetchSheetRows(dataPoint);
+            const scoredRows = await Promise.all(rows.map(async row => {
+                const embedding = await getEmbeddingForUrl(model, row.Image);
+                if (!embedding) return null;
+                return { cardType: dataPoint, row, score: cosineSimilarity(queryEmbedding, embedding) };
+            }));
+            return scoredRows.filter(Boolean);
+        }));
+
+        if (requestId !== latestRequest) return;
+
+        const topMatches = resultsByType.flat()
+            .sort((a, b) => b.score - a.score)
+            .slice(0, MAX_IMAGE_RESULTS);
+
+        showImageSearchStatus(topMatches.length);
+        renderSearchResults(topMatches);
+    } catch (error) {
+        if (requestId === latestRequest) {
+            console.error(error);
+            document.getElementById("data-output").innerHTML = "<p>Unable to search by photo. Please try again.</p>";
+        }
+    } finally {
+        URL.revokeObjectURL(objectUrl);
         if (requestId === latestRequest) setLoading(false);
     }
 };
