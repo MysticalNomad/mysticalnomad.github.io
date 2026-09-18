@@ -1,6 +1,7 @@
 html, body {
     height: 100%;
     overflow: hidden;
+    overscroll-behavior-y: none;
 }
 
 body { 
@@ -224,6 +225,7 @@ main {
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior-y: contain;
     background: #EEE;
     background-attachment: fixed;
 }

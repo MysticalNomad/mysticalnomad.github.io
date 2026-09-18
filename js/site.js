@@ -546,6 +546,17 @@ function initPullToRefresh() {
             indicator.style.transform = "translate(-50%, 0)";
         }
     });
+
+    // Mobile browsers cancel the touch sequence (instead of ending it) when they intercept
+    // the gesture for their own native overscroll/refresh UI, so treat it as an aborted pull
+    container.addEventListener("touchcancel", () => {
+        if (!pulling) return;
+        pulling = false;
+        ready = false;
+        startY = null;
+        indicator.classList.remove("visible", "ready", "refreshing");
+        indicator.style.transform = "translate(-50%, 0)";
+    });
 }
 
 const cardTemplates = [
