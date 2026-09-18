@@ -41,17 +41,18 @@ function navigate(sender) {
 }
 
 function loadCurrentView() {
-    const dataPoint = location.hash.slice(1) || "HOME";
+    const [dataPoint, queryString] = (location.hash.slice(1) || "HOME").split("?");
     const link = document.querySelector(
         `nav a[data-point="${CSS.escape(dataPoint)}"]`
     );
 
-    loadData(link);
+    loadData(link, parseFiltersFromHash(queryString));
 }
 
 window.addEventListener("DOMContentLoaded", loadCurrentView);
 window.addEventListener("DOMContentLoaded", initNavToggle);
 window.addEventListener("DOMContentLoaded", initSearch);
+window.addEventListener("DOMContentLoaded", initFieldFilter);
 window.addEventListener("hashchange", loadCurrentView);
 window.addEventListener("hashchange", closeNav);
 window.addEventListener("hashchange", clearSearch);
@@ -158,6 +159,91 @@ function matchesTerm(row, term) {
         String(row.Franchise ?? "").toLowerCase().includes(term);
 }
 
+let currentFieldFilters = {};
+
+function initFieldFilter() {
+    const output = document.getElementById("data-output");
+    if (!output) return;
+
+    output.addEventListener("click", event => {
+        const target = event.target.closest(".field-filter");
+        if (target) applyFieldFilter(target.dataset.field, target.dataset.value);
+    });
+
+    output.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const target = event.target.closest(".field-filter");
+        if (!target) return;
+        event.preventDefault();
+        applyFieldFilter(target.dataset.field, target.dataset.value);
+    });
+}
+
+function hideFilterStatus() {
+    const status = document.getElementById("filter-status");
+    if (!status) return;
+    status.hidden = true;
+    status.replaceChildren();
+}
+
+function showFilterStatus(count) {
+    const status = document.getElementById("filter-status");
+    if (!status) return;
+
+    const description = Object.entries(currentFieldFilters)
+        .map(([field, value]) => `${field} "${value}"`)
+        .join(" and ");
+
+    const text = document.createElement("span");
+    text.textContent = `${count} result${count === 1 ? "" : "s"} for ${description}`;
+
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.textContent = "Show all";
+    clearButton.addEventListener("click", clearFieldFilters);
+
+    status.replaceChildren(text, clearButton);
+    status.hidden = false;
+}
+
+function applyFieldFilter(field, value) {
+    if (!field || !value || currentDataPoint === "HOME") return;
+
+    currentFieldFilters = { ...currentFieldFilters, [field]: value };
+    const filteredRows = currentRows.filter(row =>
+        Object.entries(currentFieldFilters).every(([f, v]) => row[f] === v)
+    );
+    renderCards(currentDataPoint, filteredRows);
+    showFilterStatus(filteredRows.length);
+    syncFiltersToUrl();
+}
+
+function clearFieldFilters() {
+    if (Object.keys(currentFieldFilters).length === 0) return;
+
+    currentFieldFilters = {};
+    hideFilterStatus();
+    if (currentDataPoint !== "HOME") renderCards(currentDataPoint, currentRows);
+    syncFiltersToUrl();
+}
+
+function parseFiltersFromHash(queryString) {
+    if (!queryString) return {};
+    const filters = {};
+    new URLSearchParams(queryString).forEach((value, field) => {
+        if (value) filters[field] = value;
+    });
+    return filters;
+}
+
+// Updates the URL without firing hashchange, so refreshes restore the active filters
+function syncFiltersToUrl() {
+    if (currentDataPoint === "HOME") return;
+    const params = new URLSearchParams(currentFieldFilters).toString();
+    const hash = params ? `${currentDataPoint}?${params}` : currentDataPoint;
+    history.replaceState(null, "", `#${hash}`);
+}
+
 const applySearch = async (query) => {
     const term = query.trim().toLowerCase();
 
@@ -177,6 +263,7 @@ const applySearch = async (query) => {
 
     const requestId = ++latestRequest;
     setLoading(true);
+    clearFieldFilters();
 
     try {
         document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
@@ -201,7 +288,7 @@ const applySearch = async (query) => {
     }
 };
 
-const loadData = async (sender) => {
+const loadData = async (sender, initialFilters = {}) => {
     const requestId = ++latestRequest;
     let dataPoint = "HOME"; // Default data point
     if (sender && sender.dataset && sender.dataset.point) {
@@ -216,6 +303,8 @@ const loadData = async (sender) => {
 
         currentDataPoint = dataPoint;
         currentRows = [];
+        currentFieldFilters = {};
+        hideFilterStatus();
 
         if (dataPoint === "HOME") {
             document.getElementById("data-output").innerHTML = "";
@@ -231,7 +320,17 @@ const loadData = async (sender) => {
         }
 
         currentRows = formattedData;
-        renderCards(dataPoint, formattedData);
+
+        if (Object.keys(initialFilters).length > 0) {
+            currentFieldFilters = initialFilters;
+            const filteredRows = currentRows.filter(row =>
+                Object.entries(currentFieldFilters).every(([f, v]) => row[f] === v)
+            );
+            renderCards(dataPoint, filteredRows);
+            showFilterStatus(filteredRows.length);
+        } else {
+            renderCards(dataPoint, formattedData);
+        }
     } catch (error) {
         if (requestId === latestRequest) {
             console.error(error);
@@ -256,13 +355,15 @@ const cardTemplates = [
                     <div class="itemTitle">
                         <sup>{Number}</sup>
                         <span>{Name/Description}</span>
+                        <sup class="itemBadge">{Retired}</sup>
                     </div>
                     <div class="itemImage">
                         <img src="{Image}" alt="{Name}">
                     </div>
                     <div class="itemDetails">
-                        <div>{Franchise}</div>
-                        <span>{Series}</span>
+                        <div class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">{Franchise}</div>
+                        <span class="field-filter" data-field="Series" data-value="{Series}" role="button" tabindex="0">{Series}</span>
+                        <span>{Notes}</span>
                         <sub>Pieces: {Pieces}</sub>
                     </div>
                 </article>
@@ -280,8 +381,8 @@ const cardTemplates = [
                         <img src="{Image}" alt="{Name}">
                     </div>
                     <div class="itemDetails">
-                        <div>{Franchise}</div>
-                        <span>{Series}</span>
+                        <div class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">{Franchise}</div>
+                        <span class="field-filter" data-field="Series" data-value="{Series}" role="button" tabindex="0">{Series}</span>
                         <sub>Notes: {Notes}</sub>
                     </div>
                 </article>
@@ -293,7 +394,7 @@ const cardTemplates = [
                 <article>
                     <div class="itemTitle">
                         <sup>{Type}</sup>
-                        <span>{Franchise}</span>
+                        <span class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">{Franchise}</span>
                     </div>
                     <div class="itemImage">
                         <img src="{Image}" alt="{Name}">
@@ -302,6 +403,23 @@ const cardTemplates = [
                         <div>{Name/Description}</div>
                         <span>Players: {Players}</span>
                         <sub>Notes: {Notes}</sub>
+                    </div>
+                </article>
+            `
+    },
+    { 
+        cardType: "SQUISHMALLOWS",
+        template: `
+                <article>
+                    <div class="itemTitle">
+                        <span>{Name/Description}</span>
+                    </div>
+                    <div class="itemImage">
+                        <img src="{Image}" alt="{Name}">
+                    </div>
+                    <div class="itemDetails">
+                        <div class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">Series: {Franchise}</div>
+                        <span>{Notes}</span>
                     </div>
                 </article>
             `
@@ -322,6 +440,10 @@ function buildCard(cardType, row) {
         placeholder.setAttribute("aria-label", "No image available");
         image.replaceWith(placeholder);
     }
+
+    const badge = template.content.querySelector(".itemBadge");
+    if (badge && !badge.textContent.trim()) badge.remove();
+
     return template.content;
 }
 
