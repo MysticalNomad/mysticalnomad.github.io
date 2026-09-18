@@ -464,7 +464,7 @@ nav > ul > li > a.active {
         margin: 0 8px;
         max-width: none;
     }
-    .header-search i {
+    .header-search > i {
         display: none;
     }
     nav {
