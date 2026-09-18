@@ -54,6 +54,7 @@ window.addEventListener("DOMContentLoaded", initNavToggle);
 window.addEventListener("DOMContentLoaded", initSearch);
 window.addEventListener("DOMContentLoaded", initCameraSearch);
 window.addEventListener("DOMContentLoaded", initFieldFilter);
+window.addEventListener("DOMContentLoaded", initPullToRefresh);
 window.addEventListener("hashchange", loadCurrentView);
 window.addEventListener("hashchange", closeNav);
 window.addEventListener("hashchange", clearSearch);
@@ -491,6 +492,60 @@ function setLoading(isLoading) {
     const loadingScreen = document.getElementById("loading-screen");
     loadingScreen.classList.toggle("visible", isLoading);
     loadingScreen.setAttribute("aria-hidden", String(!isLoading));
+}
+
+const PULL_REFRESH_THRESHOLD = 70;
+const PULL_REFRESH_MAX = 110;
+
+// main is the actual scroll container (body/html don't scroll), so the browser's
+// native pull-to-refresh never fires here; this reimplements the gesture manually.
+function initPullToRefresh() {
+    const container = document.querySelector("main");
+    const indicator = document.getElementById("pull-refresh");
+    if (!container || !indicator) return;
+
+    let startY = null;
+    let pulling = false;
+    let ready = false;
+
+    container.addEventListener("touchstart", event => {
+        if (container.scrollTop > 0) {
+            startY = null;
+            pulling = false;
+            return;
+        }
+        startY = event.touches[0].clientY;
+        pulling = true;
+        ready = false;
+    }, { passive: true });
+
+    container.addEventListener("touchmove", event => {
+        if (!pulling || startY === null) return;
+        const deltaY = event.touches[0].clientY - startY;
+        if (deltaY <= 0) return;
+
+        event.preventDefault();
+        const distance = Math.min(deltaY, PULL_REFRESH_MAX);
+        ready = distance >= PULL_REFRESH_THRESHOLD;
+        indicator.classList.add("visible");
+        indicator.classList.toggle("ready", ready);
+        indicator.style.transform = `translate(-50%, ${distance}px)`;
+    }, { passive: false });
+
+    container.addEventListener("touchend", () => {
+        if (!pulling) return;
+        pulling = false;
+        startY = null;
+
+        if (ready) {
+            indicator.classList.add("refreshing");
+            indicator.style.transform = `translate(-50%, ${PULL_REFRESH_THRESHOLD}px)`;
+            location.reload();
+        } else {
+            indicator.classList.remove("visible", "ready");
+            indicator.style.transform = "translate(-50%, 0)";
+        }
+    });
 }
 
 const cardTemplates = [

@@ -216,6 +216,7 @@ body > footer {
 }
 
 main {    
+    position: relative;
     margin: 0;
     padding: 0;
     width: 100vw;
@@ -225,6 +226,38 @@ main {
     overflow-x: hidden;
     background: #EEE;
     background-attachment: fixed;
+}
+#pull-refresh {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 36px;
+    height: 36px;
+    margin-top: -40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    color: #00223e;
+    transform: translate(-50%, 0);
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+#pull-refresh.visible {
+    opacity: 1;
+}
+#pull-refresh i {
+    transition: transform 0.15s ease-out;
+}
+#pull-refresh.ready i {
+    transform: rotate(180deg);
+}
+#pull-refresh.refreshing i {
+    animation: loading-spin 0.8s linear infinite;
 }
 main > h1 {
     margin:0;
