@@ -131,6 +131,40 @@ body > header > h1 {
 #camera-search-button:hover {
     color: white;
 }
+#sort-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 24px;
+    background: #f2f2f2;
+    border-bottom: 1px solid #ccc;
+    font-size: 0.85rem;
+    color: #333;
+    flex: 0 0 auto;
+}
+#sort-bar span {
+    font-weight: 600;
+}
+#sort-bar button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    color: #333;
+    cursor: pointer;
+}
+#sort-bar button:hover {
+    background: #e6e6e6;
+}
+#sort-bar button.active {
+    background: #00223e;
+    border-color: #00223e;
+    color: white;
+}
 #search-status {
     display: flex;
     align-items: center;
@@ -466,6 +500,9 @@ nav > ul > li > a.active {
     }
     .header-search > i {
         display: none;
+    }
+    #sort-bar {
+        padding: 6px 12px;
     }
     nav {
         position: fixed;

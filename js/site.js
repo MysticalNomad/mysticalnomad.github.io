@@ -6,6 +6,88 @@ let currentDataPoint = "HOME";
 let currentRows = [];
 const sheetCache = {};
 
+const SORT_DIRECTION_STORAGE_KEY = "sortDirection";
+let currentSortDirection = localStorage.getItem(SORT_DIRECTION_STORAGE_KEY) || null; // null | "asc" | "desc"
+let lastRenderMode = null; // "cards" | "search" | null
+let lastRenderedRows = [];
+let lastRenderedTaggedRows = [];
+
+function getSortName(row) {
+    return String(row["Name/Description"] ?? row.Name ?? "").toLowerCase();
+}
+
+function sortRows(rows) {
+    if (!currentSortDirection) return rows;
+    return [...rows].sort((a, b) => {
+        const comparison = getSortName(a).localeCompare(getSortName(b));
+        return currentSortDirection === "asc" ? comparison : -comparison;
+    });
+}
+
+function sortTaggedRows(taggedRows) {
+    if (!currentSortDirection) return taggedRows;
+    return [...taggedRows].sort((a, b) => {
+        const comparison = getSortName(a.row).localeCompare(getSortName(b.row));
+        return currentSortDirection === "asc" ? comparison : -comparison;
+    });
+}
+
+// Renders cards while remembering the underlying rows so the sort bar can re-render on demand
+function displayCards(cardType, rows) {
+    lastRenderMode = "cards";
+    lastRenderedRows = rows;
+    renderCards(cardType, sortRows(rows));
+}
+
+// Renders tagged search/photo results while remembering them so the sort bar can re-render on demand
+function displaySearchResults(taggedRows) {
+    lastRenderMode = "search";
+    lastRenderedTaggedRows = taggedRows;
+    renderSearchResults(sortTaggedRows(taggedRows));
+}
+
+function clearDisplayedRows() {
+    lastRenderMode = null;
+    lastRenderedRows = [];
+    lastRenderedTaggedRows = [];
+}
+
+function initSortBar() {
+    const ascButton = document.getElementById("sort-asc");
+    const descButton = document.getElementById("sort-desc");
+    if (!ascButton || !descButton) return;
+
+    ascButton.classList.toggle("active", currentSortDirection === "asc");
+    ascButton.setAttribute("aria-pressed", String(currentSortDirection === "asc"));
+    descButton.classList.toggle("active", currentSortDirection === "desc");
+    descButton.setAttribute("aria-pressed", String(currentSortDirection === "desc"));
+
+    ascButton.addEventListener("click", () => setSortDirection(currentSortDirection === "asc" ? null : "asc"));
+    descButton.addEventListener("click", () => setSortDirection(currentSortDirection === "desc" ? null : "desc"));
+}
+
+function setSortDirection(direction) {
+    currentSortDirection = direction;
+    if (direction) {
+        localStorage.setItem(SORT_DIRECTION_STORAGE_KEY, direction);
+    } else {
+        localStorage.removeItem(SORT_DIRECTION_STORAGE_KEY);
+    }
+
+    const ascButton = document.getElementById("sort-asc");
+    const descButton = document.getElementById("sort-desc");
+    ascButton?.classList.toggle("active", direction === "asc");
+    ascButton?.setAttribute("aria-pressed", String(direction === "asc"));
+    descButton?.classList.toggle("active", direction === "desc");
+    descButton?.setAttribute("aria-pressed", String(direction === "desc"));
+
+    if (lastRenderMode === "cards") {
+        renderCards(currentDataPoint, sortRows(lastRenderedRows));
+    } else if (lastRenderMode === "search") {
+        renderSearchResults(sortTaggedRows(lastRenderedTaggedRows));
+    }
+}
+
 async function fetchSheetRows(dataPoint) {
     if (sheetCache[dataPoint]) return sheetCache[dataPoint];
 
@@ -54,6 +136,7 @@ window.addEventListener("DOMContentLoaded", initNavToggle);
 window.addEventListener("DOMContentLoaded", initSearch);
 window.addEventListener("DOMContentLoaded", initCameraSearch);
 window.addEventListener("DOMContentLoaded", initFieldFilter);
+window.addEventListener("DOMContentLoaded", initSortBar);
 window.addEventListener("DOMContentLoaded", initPullToRefresh);
 window.addEventListener("hashchange", loadCurrentView);
 window.addEventListener("hashchange", closeNav);
@@ -215,7 +298,7 @@ function applyFieldFilter(field, value) {
     const filteredRows = currentRows.filter(row =>
         Object.entries(currentFieldFilters).every(([f, v]) => row[f] === v)
     );
-    renderCards(currentDataPoint, filteredRows);
+    displayCards(currentDataPoint, filteredRows);
     showFilterStatus(filteredRows.length);
     syncFiltersToUrl();
 }
@@ -225,7 +308,7 @@ function clearFieldFilters() {
 
     currentFieldFilters = {};
     hideFilterStatus();
-    if (currentDataPoint !== "HOME") renderCards(currentDataPoint, currentRows);
+    if (currentDataPoint !== "HOME") displayCards(currentDataPoint, currentRows);
     syncFiltersToUrl();
 }
 
@@ -256,9 +339,10 @@ const applySearch = async (query) => {
         if (activeLink) activeLink.classList.add("active");
 
         if (currentDataPoint === "HOME") {
+            clearDisplayedRows();
             document.getElementById("data-output").innerHTML = "";
         } else {
-            renderCards(currentDataPoint, currentRows);
+            displayCards(currentDataPoint, currentRows);
         }
         return;
     }
@@ -279,7 +363,7 @@ const applySearch = async (query) => {
 
         const flatResults = resultsByType.flat();
         showSearchStatus(query.trim(), flatResults.length);
-        renderSearchResults(flatResults);
+        displaySearchResults(flatResults);
     } catch (error) {
         if (requestId === latestRequest) {
             console.error(error);
@@ -423,7 +507,7 @@ const applyImageSearch = async (file) => {
             .slice(0, MAX_IMAGE_RESULTS);
 
         showImageSearchStatus(topMatches.length);
-        renderSearchResults(topMatches);
+        displaySearchResults(topMatches);
     } catch (error) {
         if (requestId === latestRequest) {
             console.error(error);
@@ -454,6 +538,7 @@ const loadData = async (sender, initialFilters = {}) => {
         hideFilterStatus();
 
         if (dataPoint === "HOME") {
+            clearDisplayedRows();
             document.getElementById("data-output").innerHTML = "";
             return;
         }
@@ -462,6 +547,7 @@ const loadData = async (sender, initialFilters = {}) => {
         if (requestId !== latestRequest) return;
 
         if (formattedData.length === 0) {
+            clearDisplayedRows();
             document.getElementById("data-output").innerHTML = "<p>No data is available.</p>";
             return;
         }
@@ -473,10 +559,10 @@ const loadData = async (sender, initialFilters = {}) => {
             const filteredRows = currentRows.filter(row =>
                 Object.entries(currentFieldFilters).every(([f, v]) => row[f] === v)
             );
-            renderCards(dataPoint, filteredRows);
+            displayCards(dataPoint, filteredRows);
             showFilterStatus(filteredRows.length);
         } else {
-            renderCards(dataPoint, formattedData);
+            displayCards(dataPoint, formattedData);
         }
     } catch (error) {
         if (requestId === latestRequest) {
