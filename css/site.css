@@ -1,6 +1,7 @@
 html, body {
     height: 100%;
     overflow: hidden;
+    overscroll-behavior-y: none;
 }
 
 body { 
@@ -115,6 +116,55 @@ body > header > h1 {
 #search-clear[hidden] {
     display: none;
 }
+#camera-search-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: #b9d4ee;
+    font-size: 0.85rem;
+    padding: 4px;
+    cursor: pointer;
+}
+#camera-search-button:hover {
+    color: white;
+}
+#sort-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 24px;
+    background: #f2f2f2;
+    border-bottom: 1px solid #ccc;
+    font-size: 0.85rem;
+    color: #333;
+    flex: 0 0 auto;
+}
+#sort-bar span {
+    font-weight: 600;
+}
+#sort-bar button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    color: #333;
+    cursor: pointer;
+}
+#sort-bar button:hover {
+    background: #e6e6e6;
+}
+#sort-bar button.active {
+    background: #00223e;
+    border-color: #00223e;
+    color: white;
+}
 #search-status {
     display: flex;
     align-items: center;
@@ -201,6 +251,7 @@ body > footer {
 }
 
 main {    
+    position: relative;
     margin: 0;
     padding: 0;
     width: 100vw;
@@ -208,8 +259,41 @@ main {
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior-y: contain;
     background: #EEE;
     background-attachment: fixed;
+}
+#pull-refresh {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 36px;
+    height: 36px;
+    margin-top: -40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    color: #00223e;
+    transform: translate(-50%, 0);
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+#pull-refresh.visible {
+    opacity: 1;
+}
+#pull-refresh i {
+    transition: transform 0.15s ease-out;
+}
+#pull-refresh.ready i {
+    transform: rotate(180deg);
+}
+#pull-refresh.refreshing i {
+    animation: loading-spin 0.8s linear infinite;
 }
 main > h1 {
     margin:0;
@@ -414,8 +498,11 @@ nav > ul > li > a.active {
         margin: 0 8px;
         max-width: none;
     }
-    .header-search i {
+    .header-search > i {
         display: none;
+    }
+    #sort-bar {
+        padding: 6px 12px;
     }
     nav {
         position: fixed;

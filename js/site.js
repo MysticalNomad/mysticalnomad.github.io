@@ -6,6 +6,88 @@ let currentDataPoint = "HOME";
 let currentRows = [];
 const sheetCache = {};
 
+const SORT_DIRECTION_STORAGE_KEY = "sortDirection";
+let currentSortDirection = localStorage.getItem(SORT_DIRECTION_STORAGE_KEY) || null; // null | "asc" | "desc"
+let lastRenderMode = null; // "cards" | "search" | null
+let lastRenderedRows = [];
+let lastRenderedTaggedRows = [];
+
+function getSortName(row) {
+    return String(row["Name/Description"] ?? row.Name ?? "").toLowerCase();
+}
+
+function sortRows(rows) {
+    if (!currentSortDirection) return rows;
+    return [...rows].sort((a, b) => {
+        const comparison = getSortName(a).localeCompare(getSortName(b));
+        return currentSortDirection === "asc" ? comparison : -comparison;
+    });
+}
+
+function sortTaggedRows(taggedRows) {
+    if (!currentSortDirection) return taggedRows;
+    return [...taggedRows].sort((a, b) => {
+        const comparison = getSortName(a.row).localeCompare(getSortName(b.row));
+        return currentSortDirection === "asc" ? comparison : -comparison;
+    });
+}
+
+// Renders cards while remembering the underlying rows so the sort bar can re-render on demand
+function displayCards(cardType, rows) {
+    lastRenderMode = "cards";
+    lastRenderedRows = rows;
+    renderCards(cardType, sortRows(rows));
+}
+
+// Renders tagged search/photo results while remembering them so the sort bar can re-render on demand
+function displaySearchResults(taggedRows) {
+    lastRenderMode = "search";
+    lastRenderedTaggedRows = taggedRows;
+    renderSearchResults(sortTaggedRows(taggedRows));
+}
+
+function clearDisplayedRows() {
+    lastRenderMode = null;
+    lastRenderedRows = [];
+    lastRenderedTaggedRows = [];
+}
+
+function initSortBar() {
+    const ascButton = document.getElementById("sort-asc");
+    const descButton = document.getElementById("sort-desc");
+    if (!ascButton || !descButton) return;
+
+    ascButton.classList.toggle("active", currentSortDirection === "asc");
+    ascButton.setAttribute("aria-pressed", String(currentSortDirection === "asc"));
+    descButton.classList.toggle("active", currentSortDirection === "desc");
+    descButton.setAttribute("aria-pressed", String(currentSortDirection === "desc"));
+
+    ascButton.addEventListener("click", () => setSortDirection(currentSortDirection === "asc" ? null : "asc"));
+    descButton.addEventListener("click", () => setSortDirection(currentSortDirection === "desc" ? null : "desc"));
+}
+
+function setSortDirection(direction) {
+    currentSortDirection = direction;
+    if (direction) {
+        localStorage.setItem(SORT_DIRECTION_STORAGE_KEY, direction);
+    } else {
+        localStorage.removeItem(SORT_DIRECTION_STORAGE_KEY);
+    }
+
+    const ascButton = document.getElementById("sort-asc");
+    const descButton = document.getElementById("sort-desc");
+    ascButton?.classList.toggle("active", direction === "asc");
+    ascButton?.setAttribute("aria-pressed", String(direction === "asc"));
+    descButton?.classList.toggle("active", direction === "desc");
+    descButton?.setAttribute("aria-pressed", String(direction === "desc"));
+
+    if (lastRenderMode === "cards") {
+        renderCards(currentDataPoint, sortRows(lastRenderedRows));
+    } else if (lastRenderMode === "search") {
+        renderSearchResults(sortTaggedRows(lastRenderedTaggedRows));
+    }
+}
+
 async function fetchSheetRows(dataPoint) {
     if (sheetCache[dataPoint]) return sheetCache[dataPoint];
 
@@ -80,7 +162,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 });
 window.addEventListener("DOMContentLoaded", initNavToggle);
 window.addEventListener("DOMContentLoaded", initSearch);
+window.addEventListener("DOMContentLoaded", initCameraSearch);
 window.addEventListener("DOMContentLoaded", initFieldFilter);
+window.addEventListener("DOMContentLoaded", initSortBar);
+window.addEventListener("DOMContentLoaded", initPullToRefresh);
 window.addEventListener("hashchange", loadCurrentView);
 window.addEventListener("hashchange", closeNav);
 window.addEventListener("hashchange", clearSearch);
@@ -241,7 +326,7 @@ function applyFieldFilter(field, value) {
     const filteredRows = currentRows.filter(row =>
         Object.entries(currentFieldFilters).every(([f, v]) => row[f] === v)
     );
-    renderCards(currentDataPoint, filteredRows);
+    displayCards(currentDataPoint, filteredRows);
     showFilterStatus(filteredRows.length);
     syncFiltersToUrl();
 }
@@ -251,7 +336,7 @@ function clearFieldFilters() {
 
     currentFieldFilters = {};
     hideFilterStatus();
-    if (currentDataPoint !== "HOME") renderCards(currentDataPoint, currentRows);
+    if (currentDataPoint !== "HOME") displayCards(currentDataPoint, currentRows);
     syncFiltersToUrl();
 }
 
@@ -282,9 +367,10 @@ const applySearch = async (query) => {
         if (activeLink) activeLink.classList.add("active");
 
         if (currentDataPoint === "HOME") {
+            clearDisplayedRows();
             document.getElementById("data-output").innerHTML = "";
         } else {
-            renderCards(currentDataPoint, currentRows);
+            displayCards(currentDataPoint, currentRows);
         }
         return;
     }
@@ -305,13 +391,158 @@ const applySearch = async (query) => {
 
         const flatResults = resultsByType.flat();
         showSearchStatus(query.trim(), flatResults.length);
-        renderSearchResults(flatResults);
+        displaySearchResults(flatResults);
     } catch (error) {
         if (requestId === latestRequest) {
             console.error(error);
             document.getElementById("data-output").innerHTML = "<p>Unable to search. Please try again.</p>";
         }
     } finally {
+        if (requestId === latestRequest) setLoading(false);
+    }
+};
+
+const MAX_IMAGE_RESULTS = 24;
+const TFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/+esm";
+const MOBILENET_MODULE_URL = "https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/+esm";
+let mobilenetModelPromise = null;
+const embeddingCache = {};
+
+function initCameraSearch() {
+    const cameraButton = document.getElementById("camera-search-button");
+    const cameraInput = document.getElementById("camera-input");
+    if (!cameraButton || !cameraInput) return;
+
+    cameraButton.addEventListener("click", () => cameraInput.click());
+    cameraInput.addEventListener("change", () => {
+        const file = cameraInput.files?.[0];
+        cameraInput.value = "";
+        if (file) applyImageSearch(file);
+    });
+}
+
+// Loaded on first use only, so visitors who never search by photo avoid the download
+async function loadMobileNetModel() {
+    if (!mobilenetModelPromise) {
+        mobilenetModelPromise = (async () => {
+            await import(TFJS_MODULE_URL);
+            const mobilenetLib = await import(MOBILENET_MODULE_URL);
+            return mobilenetLib.load();
+        })();
+    }
+    return mobilenetModelPromise;
+}
+
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Unable to load image: ${src}`));
+        img.src = src;
+    });
+}
+
+async function computeEmbedding(model, image) {
+    const tensor = model.infer(image, true);
+    const values = await tensor.data();
+    tensor.dispose();
+    return Array.from(values);
+}
+
+// Embeddings are cached in localStorage so repeat searches skip re-downloading/re-scoring catalog images
+async function getEmbeddingForUrl(model, url) {
+    if (!url) return null;
+    if (embeddingCache[url]) return embeddingCache[url];
+
+    const storageKey = `embedding:${url}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+        const parsed = JSON.parse(stored);
+        embeddingCache[url] = parsed;
+        return parsed;
+    }
+
+    try {
+        const image = await loadImage(url);
+        const embedding = await computeEmbedding(model, image);
+        embeddingCache[url] = embedding;
+        localStorage.setItem(storageKey, JSON.stringify(embedding));
+        return embedding;
+    } catch {
+        return null; // image failed to load or is blocked by CORS
+    }
+}
+
+function cosineSimilarity(a, b) {
+    let dot = 0, normA = 0, normB = 0;
+    for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+    }
+    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function showImageSearchStatus(count) {
+    const status = document.getElementById("search-status");
+    if (!status) return;
+
+    const text = document.createElement("span");
+    text.textContent = `${count} closest match${count === 1 ? "" : "es"} found for your photo`;
+
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.textContent = "Clear search";
+    clearButton.addEventListener("click", () => {
+        updateSearchIndicator("");
+        applySearch("");
+    });
+
+    status.replaceChildren(text, clearButton);
+    status.hidden = false;
+}
+
+const applyImageSearch = async (file) => {
+    const requestId = ++latestRequest;
+    setLoading(true);
+    clearFieldFilters();
+    hideSearchStatus();
+
+    const objectUrl = URL.createObjectURL(file);
+
+    try {
+        document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
+
+        const model = await loadMobileNetModel();
+        const queryImage = await loadImage(objectUrl);
+        const queryEmbedding = await computeEmbedding(model, queryImage);
+
+        const resultsByType = await Promise.all(ALL_DATA_POINTS.map(async dataPoint => {
+            const rows = await fetchSheetRows(dataPoint);
+            const scoredRows = await Promise.all(rows.map(async row => {
+                const embedding = await getEmbeddingForUrl(model, row.Image);
+                if (!embedding) return null;
+                return { cardType: dataPoint, row, score: cosineSimilarity(queryEmbedding, embedding) };
+            }));
+            return scoredRows.filter(Boolean);
+        }));
+
+        if (requestId !== latestRequest) return;
+
+        const topMatches = resultsByType.flat()
+            .sort((a, b) => b.score - a.score)
+            .slice(0, MAX_IMAGE_RESULTS);
+
+        showImageSearchStatus(topMatches.length);
+        displaySearchResults(topMatches);
+    } catch (error) {
+        if (requestId === latestRequest) {
+            console.error(error);
+            document.getElementById("data-output").innerHTML = "<p>Unable to search by photo. Please try again.</p>";
+        }
+    } finally {
+        URL.revokeObjectURL(objectUrl);
         if (requestId === latestRequest) setLoading(false);
     }
 };
@@ -335,6 +566,7 @@ const loadData = async (sender, initialFilters = {}) => {
         hideFilterStatus();
 
         if (dataPoint === "HOME") {
+            clearDisplayedRows();
             document.getElementById("data-output").innerHTML = "";
             return;
         }
@@ -343,6 +575,7 @@ const loadData = async (sender, initialFilters = {}) => {
         if (requestId !== latestRequest) return;
 
         if (formattedData.length === 0) {
+            clearDisplayedRows();
             document.getElementById("data-output").innerHTML = "<p>No data is available.</p>";
             return;
         }
@@ -354,10 +587,10 @@ const loadData = async (sender, initialFilters = {}) => {
             const filteredRows = currentRows.filter(row =>
                 Object.entries(currentFieldFilters).every(([f, v]) => row[f] === v)
             );
-            renderCards(dataPoint, filteredRows);
+            displayCards(dataPoint, filteredRows);
             showFilterStatus(filteredRows.length);
         } else {
-            renderCards(dataPoint, formattedData);
+            displayCards(dataPoint, formattedData);
         }
     } catch (error) {
         if (requestId === latestRequest) {
@@ -373,6 +606,71 @@ function setLoading(isLoading) {
     const loadingScreen = document.getElementById("loading-screen");
     loadingScreen.classList.toggle("visible", isLoading);
     loadingScreen.setAttribute("aria-hidden", String(!isLoading));
+}
+
+const PULL_REFRESH_THRESHOLD = 70;
+const PULL_REFRESH_MAX = 110;
+
+// main is the actual scroll container (body/html don't scroll), so the browser's
+// native pull-to-refresh never fires here; this reimplements the gesture manually.
+function initPullToRefresh() {
+    const container = document.querySelector("main");
+    const indicator = document.getElementById("pull-refresh");
+    if (!container || !indicator) return;
+
+    let startY = null;
+    let pulling = false;
+    let ready = false;
+
+    container.addEventListener("touchstart", event => {
+        if (container.scrollTop > 0) {
+            startY = null;
+            pulling = false;
+            return;
+        }
+        startY = event.touches[0].clientY;
+        pulling = true;
+        ready = false;
+    }, { passive: true });
+
+    container.addEventListener("touchmove", event => {
+        if (!pulling || startY === null) return;
+        const deltaY = event.touches[0].clientY - startY;
+        if (deltaY <= 0) return;
+
+        event.preventDefault();
+        const distance = Math.min(deltaY, PULL_REFRESH_MAX);
+        ready = distance >= PULL_REFRESH_THRESHOLD;
+        indicator.classList.add("visible");
+        indicator.classList.toggle("ready", ready);
+        indicator.style.transform = `translate(-50%, ${distance}px)`;
+    }, { passive: false });
+
+    container.addEventListener("touchend", () => {
+        if (!pulling) return;
+        pulling = false;
+        startY = null;
+
+        if (ready) {
+            indicator.classList.add("refreshing");
+            indicator.style.transform = `translate(-50%, ${PULL_REFRESH_THRESHOLD}px)`;
+            location.reload();
+        } else {
+            indicator.classList.remove("visible", "ready");
+            indicator.style.transform = "translate(-50%, 0)";
+        }
+    });
+
+    // Mobile browsers cancel the touch sequence (instead of ending it) when they intercept
+    // the gesture for their own native overscroll/refresh UI, so treat it as an aborted pull
+    container.addEventListener("touchcancel", () => {
+        if (!pulling) return;
+        pulling = false;
+        ready = false;
+        startY = null;
+        indicator.classList.remove("visible", "ready", "refreshing");
+        indicator.style.transform = "translate(-50%, 0)";
+    });
 }
 
 const cardTemplates = [

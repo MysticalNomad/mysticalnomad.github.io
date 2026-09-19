@@ -38,15 +38,29 @@
 			<button id="search-clear" type="button" aria-label="Clear search" hidden>
 				<i class="fa-solid fa-xmark" aria-hidden="true"></i>
 			</button>
+			<button id="camera-search-button" type="button" aria-label="Search by photo">
+				<i class="fa-solid fa-camera" aria-hidden="true"></i>
+			</button>
+			<input id="camera-input" type="file" accept="image/*" capture="environment" hidden />
 		</div>
 		<button id="nav-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="main-nav">
 			<i class="fa-solid fa-bars"></i>
 		</button>
 	</header>
+	<div id="sort-bar">
+		<span>Sort by name:</span>
+		<button id="sort-asc" type="button" aria-pressed="false">
+			<i class="fa-solid fa-arrow-down-a-z" aria-hidden="true"></i> A–Z
+		</button>
+		<button id="sort-desc" type="button" aria-pressed="false">
+			<i class="fa-solid fa-arrow-down-z-a" aria-hidden="true"></i> Z–A
+		</button>
+	</div>
 	<nav id="main-nav">
 		<ul></ul>
 	</nav>
 	<main>
+		<div id="pull-refresh" aria-hidden="true"><i class="fa-solid fa-rotate"></i></div>
 		<p id="search-status" hidden></p>
 		<p id="filter-status" hidden></p>
 		<section id="data-output"></section>
