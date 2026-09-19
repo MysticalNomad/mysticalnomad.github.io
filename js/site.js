@@ -40,6 +40,27 @@ function navigate(sender) {
     location.hash = dataPoint;
 }
 
+async function initMenu() {
+    const menuList = document.querySelector("#main-nav > ul");
+    if (!menuList) return;
+
+    const menuRows = await fetchSheetRows("Menu");
+    const menuItems = menuRows
+        .filter(row => String(row.Name).trim() && String(row.Link).trim())
+        .map(row => {
+            const link = document.createElement("a");
+            const dataPoint = String(row.Link).trim();
+            link.href = `#${dataPoint}`;
+            link.dataset.point = dataPoint;
+            link.textContent = row.Name;
+            return link;
+        });
+
+    const menuItemGroup = document.createElement("li");
+    menuItemGroup.append(...menuItems);
+    menuList.replaceChildren(menuItemGroup);
+}
+
 function loadCurrentView() {
     const [dataPoint, queryString] = (location.hash.slice(1) || "HOME").split("?");
     const link = document.querySelector(
@@ -49,7 +70,14 @@ function loadCurrentView() {
     loadData(link, parseFiltersFromHash(queryString));
 }
 
-window.addEventListener("DOMContentLoaded", loadCurrentView);
+window.addEventListener("DOMContentLoaded", async () => {
+    try {
+        await initMenu();
+    } catch (error) {
+        console.error(error);
+    }
+    loadCurrentView();
+});
 window.addEventListener("DOMContentLoaded", initNavToggle);
 window.addEventListener("DOMContentLoaded", initSearch);
 window.addEventListener("DOMContentLoaded", initFieldFilter);
