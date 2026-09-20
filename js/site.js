@@ -1,6 +1,6 @@
 const SHEET_ID = "1Nl4ENaosyt6OlxEag3RbeTxZ3opVgGK1cyOathAohQk";
 const API_KEY = "AIzaSyD8EVImOPu7MmNbxWib7q721vcnD1tBf4U";
-const ALL_DATA_POINTS = ["LEGO", "FUNKO", "TABLE_TOP"];
+let allDataPoints = [];
 let latestRequest = 0;
 let currentDataPoint = "HOME";
 let currentRows = [];
@@ -137,6 +137,10 @@ async function initMenu() {
             link.textContent = row.Name;
             return link;
         });
+
+    allDataPoints = [...new Set(menuItems
+        .map(link => link.dataset.point)
+        .filter(dataPoint => dataPoint && dataPoint !== "HOME"))];
 
     const menuItemGroup = document.createElement("li");
     menuItemGroup.append(...menuItems);
@@ -382,13 +386,14 @@ const applySearch = async (query) => {
     try {
         document.querySelectorAll("nav a").forEach(link => link.classList.remove("active"));
 
-        const resultsByType = await Promise.all(ALL_DATA_POINTS.map(async dataPoint => {
+        const resultsByType = await Promise.all(allDataPoints.map(async dataPoint => {
             const rows = await fetchSheetRows(dataPoint);
             return rows.filter(row => matchesTerm(row, term)).map(row => ({ cardType: dataPoint, row }));
         }));
 
         if (requestId !== latestRequest) return;
 
+        await loadCardTemplates();
         const flatResults = resultsByType.flat();
         showSearchStatus(query.trim(), flatResults.length);
         displaySearchResults(flatResults);
@@ -518,7 +523,7 @@ const applyImageSearch = async (file) => {
         const queryImage = await loadImage(objectUrl);
         const queryEmbedding = await computeEmbedding(model, queryImage);
 
-        const resultsByType = await Promise.all(ALL_DATA_POINTS.map(async dataPoint => {
+        const resultsByType = await Promise.all(allDataPoints.map(async dataPoint => {
             const rows = await fetchSheetRows(dataPoint);
             const scoredRows = await Promise.all(rows.map(async row => {
                 const embedding = await getEmbeddingForUrl(model, row.Image);
@@ -530,6 +535,7 @@ const applyImageSearch = async (file) => {
 
         if (requestId !== latestRequest) return;
 
+        await loadCardTemplates();
         const topMatches = resultsByType.flat()
             .sort((a, b) => b.score - a.score)
             .slice(0, MAX_IMAGE_RESULTS);
@@ -571,6 +577,7 @@ const loadData = async (sender, initialFilters = {}) => {
             return;
         }
 
+        await loadCardTemplates();
         const formattedData = await fetchSheetRows(dataPoint);
         if (requestId !== latestRequest) return;
 
@@ -673,84 +680,17 @@ function initPullToRefresh() {
     });
 }
 
-const cardTemplates = [
-    { 
-        cardType: "LEGO",
-        template: `
-                <article>
-                    <div class="itemTitle">
-                        <sup>{Number}</sup>
-                        <span>{Name/Description}</span>
-                        <sup class="itemBadge">{Retired}</sup>
-                    </div>
-                    <div class="itemImage">
-                        <img src="{Image}" alt="{Name}">
-                    </div>
-                    <div class="itemDetails">
-                        <div class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">{Franchise}</div>
-                        <span class="field-filter" data-field="Series" data-value="{Series}" role="button" tabindex="0">{Series}</span>
-                        <span>{Notes}</span>
-                        <sub>Pieces: {Pieces}</sub>
-                    </div>
-                </article>
-            `
-    },
-    { 
-        cardType: "FUNKO",
-        template: `
-                <article>
-                    <div class="itemTitle">
-                        <sup>{Number}</sup>
-                        <span>{Name/Description}</span>
-                    </div>
-                    <div class="itemImage">
-                        <img src="{Image}" alt="{Name}">
-                    </div>
-                    <div class="itemDetails">
-                        <div class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">{Franchise}</div>
-                        <span class="field-filter" data-field="Series" data-value="{Series}" role="button" tabindex="0">{Series}</span>
-                        <sub>Notes: {Notes}</sub>
-                    </div>
-                </article>
-            `
-    },
-    { 
-        cardType: "TABLE_TOP",
-        template: `
-                <article>
-                    <div class="itemTitle">
-                        <sup>{Type}</sup>
-                        <span class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">{Franchise}</span>
-                    </div>
-                    <div class="itemImage">
-                        <img src="{Image}" alt="{Name}">
-                    </div>
-                    <div class="itemDetails">
-                        <div>{Name/Description}</div>
-                        <span>Players: {Players}</span>
-                        <sub>Notes: {Notes}</sub>
-                    </div>
-                </article>
-            `
-    },
-    { 
-        cardType: "SQUISHMALLOWS",
-        template: `
-                <article>
-                    <div class="itemTitle">
-                        <span>{Name/Description}</span>
-                    </div>
-                    <div class="itemImage">
-                        <img src="{Image}" alt="{Name}">
-                    </div>
-                    <div class="itemDetails">
-                        <div class="field-filter" data-field="Franchise" data-value="{Franchise}" role="button" tabindex="0">Series: {Franchise}</div>
-                        <span>{Notes}</span>
-                    </div>
-                </article>
-            `
-    }
-];
+let cardTemplates = [];
+
+async function loadCardTemplates() {
+    const templateRows = await fetchSheetRows("TEMPLATES");
+    cardTemplates = templateRows
+        .filter(row => String(row.Type).trim() && String(row.Content).trim())
+        .map(row => ({
+            cardType: String(row.Type).trim(),
+            template: String(row.Content)
+        }));
+}
 
 function buildCard(cardType, row) {
     const cardTemplate = cardTemplates.find(card => card.cardType === cardType);
