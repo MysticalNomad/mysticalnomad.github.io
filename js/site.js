@@ -126,7 +126,7 @@ async function initMenu() {
     const menuList = document.querySelector("#main-nav > ul");
     if (!menuList) return;
 
-    const menuRows = await fetchSheetRows("Menu");
+    const menuRows = await fetchSheetRows("CONTROL");
     const menuItems = menuRows
         .filter(row => String(row.Name).trim() && String(row.Link).trim())
         .map(row => {
@@ -688,12 +688,12 @@ function initPullToRefresh() {
 let cardTemplates = [];
 
 async function loadCardTemplates() {
-    const templateRows = await fetchSheetRows("TEMPLATES");
+    const templateRows = await fetchSheetRows("CONTROL");
     cardTemplates = templateRows
-        .filter(row => String(row.Type).trim() && String(row.Content).trim())
+        .filter(row => String(row.Link).trim() && String(row.Template ?? row.Content ?? "").trim())
         .map(row => ({
-            cardType: String(row.Type).trim(),
-            template: String(row.Content)
+            cardType: String(row.Link).trim(),
+            template: String(row.Template ?? row.Content)
         }));
 }
 
