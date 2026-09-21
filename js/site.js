@@ -410,6 +410,7 @@ const applySearch = async (query) => {
 const MAX_IMAGE_RESULTS = 24;
 const TFJS_MODULE_URL = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/+esm";
 const MOBILENET_MODULE_URL = "https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/+esm";
+const IMAGE_PROXY_URL = "https://wsrv.nl/?output=jpg&url=";
 let mobilenetModelPromise = null;
 const embeddingCache = {};
 
@@ -455,6 +456,10 @@ async function computeEmbedding(model, image) {
     return Array.from(values);
 }
 
+function getSearchableImageUrl(url) {
+    return `${IMAGE_PROXY_URL}${encodeURIComponent(url)}`;
+}
+
 // Embeddings are cached in localStorage so repeat searches skip re-downloading/re-scoring catalog images
 async function getEmbeddingForUrl(model, url) {
     if (!url) return null;
@@ -469,7 +474,7 @@ async function getEmbeddingForUrl(model, url) {
     }
 
     try {
-        const image = await loadImage(url);
+        const image = await loadImage(getSearchableImageUrl(url));
         const embedding = await computeEmbedding(model, image);
         embeddingCache[url] = embedding;
         localStorage.setItem(storageKey, JSON.stringify(embedding));
