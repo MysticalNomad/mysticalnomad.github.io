@@ -170,6 +170,53 @@ window.addEventListener("DOMContentLoaded", initCameraSearch);
 window.addEventListener("DOMContentLoaded", initFieldFilter);
 window.addEventListener("DOMContentLoaded", initSortBar);
 window.addEventListener("DOMContentLoaded", initPullToRefresh);
+window.addEventListener("DOMContentLoaded", initImageLightbox);
+
+function initImageLightbox() {
+    const output = document.getElementById("data-output");
+    const dialog = document.getElementById("image-lightbox");
+    if (!output || !dialog) return;
+
+    const preview = dialog.querySelector("img");
+    const closeButton = dialog.querySelector("button");
+    const openImage = image => {
+        preview.src = image.currentSrc || image.src;
+        preview.alt = image.alt;
+        image.focus();
+        dialog.showModal();
+    };
+
+    output.addEventListener("click", event => {
+        const image = event.target.closest(".itemImage img");
+        if (image) openImage(image);
+    });
+    output.addEventListener("keydown", event => {
+        const image = event.target.closest(".itemImage img");
+        if (image && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            openImage(image);
+        }
+    });
+    closeButton.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            event.preventDefault();
+            dialog.close();
+        }
+    });
+    dialog.addEventListener("click", event => {
+        if (event.target !== dialog) return;
+        const bounds = dialog.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right ||
+            event.clientY < bounds.top || event.clientY > bounds.bottom) {
+            dialog.close();
+        }
+    });
+    dialog.addEventListener("close", () => {
+        preview.removeAttribute("src");
+        preview.alt = "";
+    });
+}
 window.addEventListener("hashchange", loadCurrentView);
 window.addEventListener("hashchange", closeNav);
 window.addEventListener("hashchange", clearSearch);
@@ -705,6 +752,12 @@ function buildCard(cardType, row) {
     template.innerHTML = cardTemplate.template.trim();
     replacePlaceholders(template.content, row);
     const image = template.content.querySelector(".itemImage img");
+    if (image && image.getAttribute("src")?.trim()) {
+        image.tabIndex = 0;
+        image.setAttribute("role", "button");
+        image.setAttribute("aria-label", `Enlarge image${image.alt ? `: ${image.alt}` : ""}`);
+        image.title = "Enlarge image";
+    }
     if (image && !image.getAttribute("src")?.trim()) {
         const placeholder = document.createElement("i");
         placeholder.className = "fa-solid fa-camera-slash";
@@ -712,8 +765,17 @@ function buildCard(cardType, row) {
         image.replaceWith(placeholder);
     }
 
-    const badge = template.content.querySelector(".itemBadge");
-    if (badge && !badge.textContent.trim()) badge.remove();
+    template.content.querySelectorAll(".itemBadge").forEach(badge => {
+        badge.classList.replace("funko-Bobblehead", "funko-bobblehead");
+        const value = badge.textContent.trim();
+        if (!value || value === "Vinyl") badge.remove();
+    });
+
+    template.content.querySelectorAll(".itemAttr").forEach(attributes => {
+        const number = attributes.querySelector("sup:not(.itemBadge)");
+        if (number && !number.textContent.trim()) number.textContent = "N/A";
+        if (!attributes.textContent.trim()) attributes.remove();
+    });
 
     return template.content;
 }

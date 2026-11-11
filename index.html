@@ -34,7 +34,8 @@
 		</div>
 		<div class="header-search">
 			<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-			<input id="search-input" type="search" placeholder="Search all products by number, name, or franchise..." aria-label="Search all products by number, name, or franchise" />
+			<input id="search-input" type="search" placeholder="Search all products by number, name, or franchise..."
+				aria-label="Search all products by number, name, or franchise" />
 			<button id="search-clear" type="button" aria-label="Clear search" hidden>
 				<i class="fa-solid fa-xmark" aria-hidden="true"></i>
 			</button>
@@ -43,7 +44,8 @@
 			</button>
 			<input id="camera-input" type="file" accept="image/*" capture="environment" hidden />
 		</div>
-		<button id="nav-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="main-nav">
+		<button id="nav-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded="false"
+			aria-controls="main-nav">
 			<i class="fa-solid fa-bars"></i>
 		</button>
 	</header>
@@ -66,6 +68,12 @@
 		<section id="data-output"></section>
 	</main>
 	<footer>&copy;&reg; 2000 MysticalNomad. All rights reserved.</footer>
+	<dialog id="image-lightbox" aria-label="Product image">
+		<button type="button" aria-label="Close image" title="Close image" autofocus>
+			<i class="fa-solid fa-xmark" aria-hidden="true"></i>
+		</button>
+		<img alt="" />
+	</dialog>
 </body>
 
 </html>
