@@ -74,6 +74,41 @@
 		</button>
 		<img alt="" />
 	</dialog>
+
+	<video id="cam" autoplay playsinline></video>
+	<button id="scanBtn" type="button">Scan &amp; Lookup</button>
+	<pre id="rawText"></pre>
+<script type="module">
+  import { createWorker } from "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.esm.min.js";
+
+  const video = document.getElementById("cam");
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" } }
+  });
+  video.srcObject = stream;
+
+  const worker = await createWorker("eng");
+
+  document.getElementById("scanBtn").addEventListener("click", async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+
+    const { data: { text } } = await worker.recognize(canvas);
+    document.getElementById("rawText").textContent = text;
+
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const productNumber = lines.find(l => /\b#?\d{2,6}\b/.test(l)) ?? "";
+    const productName = lines.find(l => l !== productNumber && /[A-Za-z]{3,}/.test(l)) ?? "";
+
+    // 1. Look up existing item by productNumber / productName
+    // 2. If found -> render existing record
+    // 3. If not found -> open creation form prefilled with { productNumber, productName }
+    console.log({ productNumber, productName });
+  });
+</script>
+
 </body>
 
 </html>
