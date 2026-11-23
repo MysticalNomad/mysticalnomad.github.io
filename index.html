@@ -75,40 +75,55 @@
 		<img alt="" />
 	</dialog>
 
-	<video id="cam" autoplay playsinline muted style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
-<button id="scanBtn" type="button">Scan &amp; Lookup</button>
+<button id="startCamBtn" type="button">Start Camera</button>
+<button id="captureBtn" type="button" disabled>Capture &amp; Scan</button>
+<button id="stopCamBtn" type="button" disabled>Stop Camera</button>
+
+<video id="cam" autoplay playsinline muted style="display:none;max-width:100%;"></video>
 <pre id="rawText"></pre>
 
 <script type="module">
   import Tesseract from "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.esm.min.js";
 
+  const startCamBtn = document.getElementById("startCamBtn");
+  const captureBtn = document.getElementById("captureBtn");
+  const stopCamBtn = document.getElementById("stopCamBtn");
   const video = document.getElementById("cam");
-  const scanBtn = document.getElementById("scanBtn");
+
   let stream = null;
   let worker = null;
 
-  async function ensureCameraAndWorker() {
-    if (!stream) {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false
-      });
-      video.srcObject = stream;
-      await new Promise((resolve) => {
-        if (video.readyState >= 1) return resolve();
-        video.addEventListener("loadedmetadata", resolve, { once: true });
-      });
-      await video.play();
+  function stopCamera() {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      stream = null;
     }
+    video.srcObject = null;
+    video.style.display = "none";
+    captureBtn.disabled = true;
+    stopCamBtn.disabled = true;
+    startCamBtn.disabled = false;
+  }
+
+  startCamBtn.addEventListener("click", async () => {
+    startCamBtn.disabled = true;
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+    video.srcObject = stream;
+    video.style.display = "block";
+    await video.play();
 
     if (!worker) {
       worker = await Tesseract.createWorker("eng");
     }
-  }
 
-  scanBtn.addEventListener("click", async () => {
-    await ensureCameraAndWorker();
+    captureBtn.disabled = false;
+    stopCamBtn.disabled = false;
+  });
 
+  captureBtn.addEventListener("click", async () => {
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -122,7 +137,10 @@
     const productName = lines.find((l) => l !== productNumber && /[A-Za-z]{3,}/.test(l)) ?? "";
 
     console.log({ productNumber, productName });
+    stopCamera();
   });
+
+  stopCamBtn.addEventListener("click", stopCamera);
 </script>
 
 </body>
