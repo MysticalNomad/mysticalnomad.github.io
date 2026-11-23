@@ -75,21 +75,40 @@
 		<img alt="" />
 	</dialog>
 
-	<video id="cam" autoplay playsinline></video>
-	<button id="scanBtn" type="button">Scan &amp; Lookup</button>
-	<pre id="rawText"></pre>
+	<video id="cam" autoplay playsinline muted style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+<button id="scanBtn" type="button">Scan &amp; Lookup</button>
+<pre id="rawText"></pre>
+
 <script type="module">
-  import { createWorker } from "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.esm.min.js";
+  import Tesseract from "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.esm.min.js";
 
   const video = document.getElementById("cam");
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "environment" } }
-  });
-  video.srcObject = stream;
+  const scanBtn = document.getElementById("scanBtn");
+  let stream = null;
+  let worker = null;
 
-  const worker = await createWorker("eng");
+  async function ensureCameraAndWorker() {
+    if (!stream) {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await new Promise((resolve) => {
+        if (video.readyState >= 1) return resolve();
+        video.addEventListener("loadedmetadata", resolve, { once: true });
+      });
+      await video.play();
+    }
 
-  document.getElementById("scanBtn").addEventListener("click", async () => {
+    if (!worker) {
+      worker = await Tesseract.createWorker("eng");
+    }
+  }
+
+  scanBtn.addEventListener("click", async () => {
+    await ensureCameraAndWorker();
+
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -98,13 +117,10 @@
     const { data: { text } } = await worker.recognize(canvas);
     document.getElementById("rawText").textContent = text;
 
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const productNumber = lines.find(l => /\b#?\d{2,6}\b/.test(l)) ?? "";
-    const productName = lines.find(l => l !== productNumber && /[A-Za-z]{3,}/.test(l)) ?? "";
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const productNumber = lines.find((l) => /\b#?\d{2,6}\b/.test(l)) ?? "";
+    const productName = lines.find((l) => l !== productNumber && /[A-Za-z]{3,}/.test(l)) ?? "";
 
-    // 1. Look up existing item by productNumber / productName
-    // 2. If found -> render existing record
-    // 3. If not found -> open creation form prefilled with { productNumber, productName }
     console.log({ productNumber, productName });
   });
 </script>
